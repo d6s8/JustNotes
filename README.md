@@ -1,2 +1,2 @@
 # JustNotes
-Simple UI for daily notes. 
+Simple GUI for daily notes. 
