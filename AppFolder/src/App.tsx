@@ -7,6 +7,7 @@ type Note = {
   title: string;
   content: string;
   pinned: boolean;
+  secured: boolean;
 };
 
 const initialNotes: Note[] = [
@@ -15,6 +16,7 @@ const initialNotes: Note[] = [
     title: "Welcome to JustNotes!",
     content: "This is your first note.",
     pinned: false,
+    secured: false,
   },
 ];
 
@@ -40,6 +42,7 @@ function App() {
       title: "Untitled",
       content: "",
       pinned: false,
+      secured: false,
     };
 
     setNotes((currentNotes) => [newNote, ...currentNotes]);
