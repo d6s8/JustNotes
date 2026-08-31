@@ -145,6 +145,35 @@ function App() {
     localStorage.setItem("justnotes-notes", JSON.stringify(notes));
   }, [notes]);
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!event.ctrlKey) {
+        return;
+      }
+
+      if (event.key === "1") {
+        event.preventDefault();
+        changeFilter("all");
+      }
+
+      if (event.key === "2") {
+        event.preventDefault();
+        changeFilter("starred");
+      }
+
+      if (event.key === "3") {
+        event.preventDefault();
+        changeFilter("trash");
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [notes]);
+
   const selectedNote = notes.find(
     (note) => note.id === selectedNoteId
   );
