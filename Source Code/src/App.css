@@ -129,6 +129,8 @@ button {
 
   width: 100%;
   border-radius: 7px;
+
+  transition: background 180ms ease;
 }
 
 .note-card-wrapper:hover {
@@ -148,6 +150,7 @@ button {
   width: 100%;
   padding: 12px;
   padding-right: 42px;
+  padding-left: 34px;
 
   background: transparent;
   border: none;
@@ -177,6 +180,29 @@ button {
 
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.drag-handle {
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  width: 32px;
+  height: 36px;
+  padding: 0;
+
+  background: transparent;
+  border: none;
+
+  color: #666666;
+  cursor: grab;
+
+  z-index: 2;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 /* PIN BUTTON IN NOTE LIST */

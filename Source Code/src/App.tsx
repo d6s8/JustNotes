@@ -1,6 +1,22 @@
 import { useEffect, useState } from "react";
-import { Pin, RotateCcw, Star, Trash2 } from "lucide-react";
+import { Pin, RotateCcw, Star, Trash2, GripVertical } from "lucide-react";
 import "./App.css";
+
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+
+import {
+  DndContext,
+  closestCenter,
+} from "@dnd-kit/core";
+
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+
+import { CSS } from "@dnd-kit/utilities";
 
 type Note = {
   id: number;
@@ -9,6 +25,7 @@ type Note = {
   pinned: boolean;
   starred: boolean;
   deletedAt: number | null;
+  order: number;
 };
 
 const initialNotes: Note[] = [
@@ -19,6 +36,7 @@ const initialNotes: Note[] = [
     pinned: false,
     starred: false,
     deletedAt: null,
+    order: 0,
   },
 ];
 
@@ -30,13 +48,93 @@ function loadNotes(): Note[] {
   }
 
   try {
-    return JSON.parse(savedNotes);
-  } catch {
+    const parsedNotes: Note[] = JSON.parse(savedNotes);
+
+    return parsedNotes.map((note, index) => ({
+      ...note,
+      order: note.order ?? index,
+      starred: note.starred ?? false,
+    }));
+  } catch (error) {
     return initialNotes;
   }
 }
 
 type Filter = "all" | "starred" | "trash";
+
+function SortableNote({
+  note,
+  selectedNoteId,
+  filter,
+  onSelect,
+  onTogglePinned,
+}: {
+  note: Note;
+  selectedNoteId: number;
+  filter: Filter;
+  onSelect: (id: number) => void;
+  onTogglePinned: (id: number) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: note.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`note-card-wrapper ${
+        note.id === selectedNoteId ? "active" : ""
+      }`}
+    >
+      <button
+        className="drag-handle"
+        {...attributes}
+        {...listeners}
+      >
+
+      <GripVertical 
+        size={16}
+        strokeWidth={1.8} 
+      />
+      </button>
+
+      <button
+        className="note-card"
+        onClick={() => onSelect(note.id)}
+      >
+        <strong>{note.title || "Untitled"}</strong>
+        <span>{note.content || "Empty note"}</span>
+      </button>
+
+      {filter !== "trash" && (
+        <button
+          className={`pin-button ${
+            note.pinned ? "pinned" : ""
+          }`}
+          onClick={() => onTogglePinned(note.id)}
+        > 
+          <Pin
+            size={16}
+            strokeWidth={1.8}
+            fill={note.pinned ? "currentColor" : "none"}
+          />
+        </button>
+      )}
+    </div>
+  );
+}
 
 function App() {
   const [notes, setNotes] = useState<Note[]>(loadNotes);
@@ -51,14 +149,81 @@ function App() {
     (note) => note.id === selectedNoteId
   );
 
-  const visibleNotes =
+  const visibleNotes = (
     filter === "trash"
       ? notes.filter((note) => note.deletedAt !== null)
       : filter === "starred"
         ? notes.filter(
-            (note) => note.starred && note.deletedAt === null
+          (note) =>
+            note.starred &&
+            note.deletedAt === null
+        )
+      : notes.filter((note) => note.deletedAt === null)
+  ).sort((a, b) => {
+    if (a.pinned !== b.pinned) {
+      return a.pinned ? -1 : 1;
+    }
+        
+    return a.order - b.order;
+  });
+
+  function changeFilter(newFilter: Filter) {
+    setFilter(newFilter);
+
+    const nextNote = 
+      newFilter === "trash"
+        ? notes.find((note) => note.deletedAt !== null)
+        : newFilter === "starred"
+          ? notes.find(
+            (note) =>
+              note.starred &&
+              note.deletedAt === null
           )
-        : notes.filter((note) => note.deletedAt === null);
+          : notes.find(
+            (note) => note.deletedAt === null
+          )
+
+    setSelectedNoteId(nextNote?.id ?? 0);
+  }
+
+  function handleDragEnd(event: any) {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = visibleNotes.findIndex(
+      (note) => note.id === active.id
+    );
+
+    const newIndex = visibleNotes.findIndex(
+      (note) => note.id === over.id
+    );
+
+    const reorderedNotes = arrayMove(
+      visibleNotes,
+      oldIndex,
+      newIndex
+    );
+
+    setNotes((currentNotes) =>
+      currentNotes.map((note) => {
+        const index = reorderedNotes.findIndex(
+          (reorderedNote) => reorderedNote.id === note.id
+        );
+
+        if (index === -1) {
+          return note;
+        }
+
+        return {
+          ...note,
+          order: index,
+        };
+      })
+    );
+  }
 
   function createNote() {
     const newNote: Note = {
@@ -68,6 +233,7 @@ function App() {
       pinned: false,
       starred: false,
       deletedAt: null,
+      order: 0,
     };
 
     setNotes((currentNotes) => [newNote, ...currentNotes]);
@@ -183,7 +349,7 @@ function App() {
             className={`nav-item ${
               filter === "all" ? "active" : ""
             }`}
-            onClick={() => setFilter("all")}
+            onClick={() => changeFilter("all")}
           >
             All notes
           </button>
@@ -192,7 +358,7 @@ function App() {
             className={`nav-item ${
               filter === "starred" ? "active" : ""
             }`}
-            onClick={() => setFilter("starred")}
+            onClick={() => changeFilter("starred")}
           >
             Starred
           </button>
@@ -201,7 +367,7 @@ function App() {
             className={`nav-item ${
               filter === "trash" ? "active" : ""
             }`}
-            onClick={() => setFilter("trash")}
+            onClick={() => changeFilter("trash")}
           >
             Trash
           </button>
@@ -223,57 +389,25 @@ function App() {
               ? "Starred"
               : "Trash"}
         </h2>
-
+    <DndContext
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+      modifiers={[restrictToVerticalAxis]}
+    >
+      <SortableContext
+        items={visibleNotes.map((note) => note.id)}
+        strategy={verticalListSortingStrategy}
+      >
         {visibleNotes.length > 0 ? (
           visibleNotes.map((note) => (
-            <div
+            <SortableNote
               key={note.id}
-              className={`note-card-wrapper ${
-                note.id === selectedNoteId ? "active" : ""
-              }`}
-            >
-              <button
-                className="note-card"
-                onClick={() => setSelectedNoteId(note.id)}
-              >
-                <strong>
-                  {note.title || "Untitled"}
-                </strong>
-
-                <span>
-                  {note.content || "Empty note"}
-                </span>
-              </button>
-
-              {filter !== "trash" && (
-                <button
-                  className={`pin-button ${
-                    note.pinned ? "pinned" : ""
-                  }`}
-                  onClick={() => togglePinned(note.id)}
-                  aria-label={
-                    note.pinned
-                      ? "Unpin note"
-                      : "Pin note"
-                  }
-                  title={
-                    note.pinned
-                      ? "Unpin note"
-                      : "Pin note"
-                  }
-                >
-                  <Pin
-                    size={16}
-                    strokeWidth={1.8}
-                    fill={
-                      note.pinned
-                        ? "currentColor"
-                        : "none"
-                    }
-                  />
-                </button>
-              )}
-            </div>
+              note={note}
+              selectedNoteId={selectedNoteId}
+              filter={filter}
+              onSelect={setSelectedNoteId}
+              onTogglePinned={togglePinned}
+            />
           ))
         ) : (
           <p className="empty-message">
@@ -284,7 +418,9 @@ function App() {
                 : "No notes"}
           </p>
         )}
-      </section>
+      </SortableContext>
+    </DndContext>
+  </section>
 
       <section className="editor">
         {selectedNote ? (
