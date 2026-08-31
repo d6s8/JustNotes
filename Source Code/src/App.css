@@ -216,7 +216,7 @@ button {
 }
 
 /* EMPTY STATE */
-.empty-editor-huge {
+.empty-editor-message {
   display: flex;
   align-items: top;
   padding-top: 100px;
@@ -318,6 +318,10 @@ button {
 }
 
 .editor-pin-button.pinned {
+  color: #eeeeee;
+}
+
+.editor-action-button.starred {
   color: #eeeeee;
 }
 

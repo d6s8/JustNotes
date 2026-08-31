@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pin, RotateCcw, Trash2 } from "lucide-react";
+import { Pin, RotateCcw, Star, Trash2 } from "lucide-react";
 import "./App.css";
 
 type Note = {
@@ -7,6 +7,7 @@ type Note = {
   title: string;
   content: string;
   pinned: boolean;
+  starred: boolean;
   deletedAt: number | null;
 };
 
@@ -16,6 +17,7 @@ const initialNotes: Note[] = [
     title: "Welcome to JustNotes!",
     content: "Here you can see documentation and examples of how to use JustNotes.",
     pinned: false,
+    starred: false,
     deletedAt: null,
   },
 ];
@@ -34,7 +36,7 @@ function loadNotes(): Note[] {
   }
 }
 
-type Filter = "all" | "pinned" | "trash";
+type Filter = "all" | "starred" | "trash";
 
 function App() {
   const [notes, setNotes] = useState<Note[]>(loadNotes);
@@ -52,9 +54,9 @@ function App() {
   const visibleNotes =
     filter === "trash"
       ? notes.filter((note) => note.deletedAt !== null)
-      : filter === "pinned"
+      : filter === "starred"
         ? notes.filter(
-            (note) => note.pinned && note.deletedAt === null
+            (note) => note.starred && note.deletedAt === null
           )
         : notes.filter((note) => note.deletedAt === null);
 
@@ -64,6 +66,7 @@ function App() {
       title: "Untitled",
       content: "",
       pinned: false,
+      starred: false,
       deletedAt: null,
     };
 
@@ -80,6 +83,7 @@ function App() {
               ...note,
               deletedAt: Date.now(),
               pinned: false,
+              starred: false,
             }
           : note
       )
@@ -101,6 +105,8 @@ function App() {
           ? {
               ...note,
               deletedAt: null,
+              pinned: false,
+              starred: false,
             }
           : note
       )
@@ -152,6 +158,19 @@ function App() {
     );
   }
 
+  function toggleStarred(id: number) {
+    setNotes((currentNotes) =>
+      currentNotes.map((note) =>
+        note.id === id
+          ? {
+              ...note,
+              starred: !note.starred,
+            }
+          : note
+      )
+    );
+  }
+
   return (
     <main className="app">
       <aside className="sidebar">
@@ -171,11 +190,11 @@ function App() {
 
           <button
             className={`nav-item ${
-              filter === "pinned" ? "active" : ""
+              filter === "starred" ? "active" : ""
             }`}
-            onClick={() => setFilter("pinned")}
+            onClick={() => setFilter("starred")}
           >
-            Pinned
+            Starred
           </button>
 
           <button
@@ -200,8 +219,8 @@ function App() {
         <h2>
           {filter === "all"
             ? "Notes"
-            : filter === "pinned"
-              ? "Pinned"
+            : filter === "starred"
+              ? "Starred"
               : "Trash"}
         </h2>
 
@@ -260,8 +279,8 @@ function App() {
           <p className="empty-message">
             {filter === "trash"
               ? "Trash is empty"
-              : filter === "pinned"
-                ? "No pinned notes"
+              : filter === "starred"
+                ? "No starred notes"
                 : "No notes"}
           </p>
         )}
@@ -271,7 +290,7 @@ function App() {
         {selectedNote ? (
           <>
             <div className="editor-toolbar">
-              {filter === "trash" ? (
+              {selectedNote.deletedAt !== null ? (
                 <>
                   <button
                     className="editor-action-button"
@@ -333,6 +352,33 @@ function App() {
                       }
                     />
                   </button>
+                  
+                  <button
+                    className={`editor-action-button ${
+                      selectedNote.starred ? "starred" : ""
+                    }`}
+                    onClick={() => toggleStarred(selectedNote.id)}
+                    aria-label={
+                      selectedNote.starred
+                        ? "Remove from starred"
+                        : "Add to starred"
+                    }
+                    title={
+                      selectedNote.starred
+                        ? "Remove from starred"
+                        : "Add to starred"
+                    }
+                  >
+                    <Star
+                      size={18}
+                      strokeWidth={1.8}
+                      fill={
+                        selectedNote.starred
+                          ? "currentColor"
+                          : "none"
+                      }
+                    />
+                  </button>
 
                   <button
                     className="editor-action-button"
@@ -378,7 +424,7 @@ function App() {
             />
           </>
         ) : (
-          <div className="empty-editor-huge">
+          <div className="empty-editor-message">
             <h1> Select a note </h1>
           </div>
         )}
