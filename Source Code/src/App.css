@@ -2,6 +2,36 @@
   box-sizing: border-box;
 }
 
+:root {
+  --bg-main: #181818;
+  --bg-sidebar: #202020;
+  --bg-list: #1c1c1c;
+
+  --bg-hover: #2b2b2b;
+  --bg-active: #303030;
+
+  --border-color: #303030;
+
+  --text-primary: #eeeeee;
+  --text-secondary: #888888;
+  --text-muted: #666666;
+}
+
+:root[data-theme="light"] {
+  --bg-main: #f7f7f7;
+  --bg-sidebar: #eeeeee;
+  --bg-list: #f2f2f2;
+
+  --bg-hover: #e4e4e4;
+  --bg-active: #dddddd;
+
+  --border-color: #d4d4d4;
+
+  --text-primary: #202020;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+}
+
 html,
 body,
 #root {
@@ -12,8 +42,8 @@ body,
 
 body {
   font-family: "DM Sans", sans-serif;
-  background: #181818;
-  color: #eeeeee;
+  background: var(--bg-main);
+  color: var(--text-primary);
 }
 
 button,
@@ -35,7 +65,7 @@ button {
   width: 100%;
   height: 100vh;
 
-  background: #181818;
+  background: var(--bg-main);
 }
 
 /* SIDEBAR */
@@ -46,8 +76,8 @@ button {
 
   padding: 20px 12px;
 
-  background: #202020;
-  border-right: 1px solid #303030;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
 }
 
 .sidebar-header {
@@ -81,26 +111,74 @@ button {
 }
 
 .nav-item:hover {
-  background: #2b2b2b;
+  background: var(--bg-hover);
 }
 
 .nav-item.active {
-  background: #303030;
+  background: var(--bg-active) ;
+}
+
+.side-bar-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  margin-top: auto;
 }
 
 .new-note-button {
-  margin-top: auto;
-  padding: 10px;
+  flex: 1;
+  padding: 10px 12px;
+  height: 42px;
 
-  background: #303030;
-  border: 1px solid #3a3a3a;
+  background: var(--bg-active);
+  border: 1px solid var(--border-color);
   border-radius: 7px;
 
   cursor: pointer;
 }
 
 .new-note-button:hover {
-  background: #383838;
+  background: var(--bg-hover);
+}
+
+.settings-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+
+  padding: 0;
+
+  background: var(--bg-active);
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+
+  color: var(--text-secondary);
+
+  cursor: pointer;
+}
+
+.settings-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .settings-button.active {
+  background: var(--bg-active);
+  border-color: #6d6868;
+  border-width: 2px;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .settings-button.active {
+  background: #d8d8d8;
+  border-color: #a8a8a8;
+  border-width: 2px;
+  color: #202020;
 }
 
 /* NOTES LIST */
@@ -108,8 +186,8 @@ button {
 .notes-list {
   padding: 20px 12px;
 
-  background: #1c1c1c;
-  border-right: 1px solid #303030;
+  background: var(--bg-main);
+  border-right: 1px solid var(--border-color);
 
   overflow-y: auto;
 }
@@ -134,11 +212,11 @@ button {
 }
 
 .note-card-wrapper:hover {
-  background: #272727;
+  background: var(--bg-hover);
 }
 
 .note-card-wrapper.active {
-  background: #303030;
+  background: var(--bg-active);
 }
 
 .note-card {
@@ -174,7 +252,7 @@ button {
 .note-card span {
   overflow: hidden;
 
-  color: #888888;
+  color: var(--text-secondary);
 
   font-size: 12px;
 
@@ -195,7 +273,7 @@ button {
   background: transparent;
   border: none;
 
-  color: #666666;
+  color: var(--text-muted);
   cursor: grab;
 
   z-index: 2;
@@ -238,7 +316,7 @@ button {
 }
 
 .pin-button.pinned {
-  color: #eeeeee;
+  color: var(--text-primary);
 }
 
 /* EMPTY STATE */
@@ -255,13 +333,14 @@ button {
   width: 100%;
   height: 100%;
 
-  background: #181818;
+  background: var(--bg-main);
+
 }
 
 .empty-message {
   padding: 12px 8px;
 
-  color: #777777;
+  color: var(--text-primary);
 
   font-size: 13px;
 }
@@ -275,7 +354,7 @@ button {
   min-width: 0;
   padding: 24px 48px 40px;
 
-  background: #181818;
+  background: var(--bg-main);
 }
 
 /* EDITOR TOOLBAR */
@@ -304,14 +383,14 @@ button {
   border: none;
   border-radius: 6px;
 
-  color: #777777;
+  color: var(--text-secondary);
 
   cursor: pointer;
 }
 
 .editor-action-button:hover {
-  background: #242424;
-  color: #eeeeee;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .editor-action-button.danger:hover {
@@ -333,22 +412,22 @@ button {
   border: none;
   border-radius: 6px;
 
-  color: #777777;
+  color: var(--text-secondary);
 
   cursor: pointer;
 }
 
 .editor-pin-button:hover {
-  background: #242424;
-  color: #eeeeee;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .editor-pin-button.pinned {
-  color: #eeeeee;
+  color: var(--text-primary);
 }
 
 .editor-action-button.starred {
-  color: #eeeeee;
+  color: var(--text-primary);
 }
 
 /* NOTE TITLE */
@@ -362,7 +441,7 @@ button {
   border: none;
   outline: none;
 
-  color: #f2f2f2;
+  color: var(--text-primary);
 
   font-size: 28px;
   font-weight: 600;
@@ -383,7 +462,7 @@ button {
   border: none;
   outline: none;
 
-  color: #d5d5d5;
+  color: var(--text-primary);
 
   font-size: 15px;
   line-height: 1.7;
@@ -391,6 +470,54 @@ button {
 
 .note-title::placeholder,
 .note-content::placeholder {
-  color: #666666;
+  color: var(--text-muted);
 }
 
+.settings {
+  grid-column: 2 / 4;
+
+  padding: 24px 32px;
+
+  background: var(--bg-main);
+}
+
+.settings h1 {
+  margin: 0;
+
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.theme-switch {
+  position: relative;
+
+  width: 48px;
+  height: 26px;
+  padding: 0;
+
+  background: var(--bg-active);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+
+  cursor: pointer;
+
+  transition: background 180ms ease;
+}
+
+.theme-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+
+  width: 18px;
+  height: 18px;
+
+  background: var(--text-primary);
+  border-radius: 50%;
+
+  transition: transform 180ms ease;
+}
+
+.theme-switch.light .theme-switch-thumb {
+  transform: translateX(22px);
+}

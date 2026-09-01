@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
-import { Pin, RotateCcw, Star, Trash2, GripVertical } from "lucide-react";
-import "./App.css";
+import { 
+        Pin,
+        RotateCcw,
+        Star,
+        Trash2,
+        GripVertical,
+        Settings as SettingsIcon
+       } from "lucide-react";
 
+import "./App.css";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
 import {
@@ -60,7 +67,9 @@ function loadNotes(): Note[] {
   }
 }
 
-type Filter = "all" | "starred" | "trash";
+type Filter = "all" | "starred" | "trash" | "settings";
+type Theme = "dark" | "light";
+
 
 function SortableNote({
   note,
@@ -140,6 +149,18 @@ function App() {
   const [notes, setNotes] = useState<Note[]>(loadNotes);
   const [selectedNoteId, setSelectedNoteId] = useState<number>(1);
   const [filter, setFilter] = useState<Filter>("all");
+
+  const [theme, setTheme] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem("justnotes-theme");
+
+    return savedTheme === "light" ? "light" : "dark";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("justnotes-theme", theme);
+
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   useEffect(() => {
     localStorage.setItem("justnotes-notes", JSON.stringify(notes));
@@ -402,13 +423,52 @@ function App() {
           </button>
         </nav>
 
-        <button
-          className="new-note-button"
-          onClick={createNote}
-        >
-          New note
-        </button>
+        <div className="side-bar-footer">
+          <button
+            className={`settings-button ${
+              filter === "settings" ? "active" : ""
+            }`}
+            onClick={() => changeFilter("settings")}
+          >
+            <SettingsIcon
+              size={18}
+              strokeWidth={1.8}
+            />
+          </button>
+
+          <button
+            className="new-note-button"
+            onClick={createNote}
+          >
+            new note
+          </button>
+        </div>
       </aside>
+
+      {filter === "settings" ? (
+        <section className="settings">
+          <h1>Settings</h1>
+
+          <div className="settings-section">
+            <div>
+              <h2>Theme</h2>
+              <p>Choose how JustNotes looks.</p>
+            </div>
+
+            <button
+              className={`theme-switch ${
+                theme === "light" ? "light" : ""
+              }`}
+              onClick={() =>
+                setTheme(theme === "dark" ? "light" : "dark")
+              }
+            >
+              <span className="theme-switch-thumb" />
+            </button>
+          </div>
+        </section>
+      ) : (
+        <>
 
       <section className="notes-list">
         <h2>
@@ -594,6 +654,8 @@ function App() {
           </div>
         )}
       </section>
+      </>
+      )}
     </main>
   );
 }
