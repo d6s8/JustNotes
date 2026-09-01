@@ -5,11 +5,18 @@ import {
         Star,
         Trash2,
         GripVertical,
-        Settings as SettingsIcon
+        Settings as SettingsIcon,
        } from "lucide-react";
 
 import "./App.css";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import Placeholder from "@tiptap/extension-placeholder";
+
+import { BubbleMenu } from "@tiptap/react/menus"
 
 import {
   DndContext,
@@ -65,6 +72,13 @@ function loadNotes(): Note[] {
   } catch (error) {
     return initialNotes;
   }
+}
+
+function getPlainText(html: string): string {
+  const element = document.createElement("div");
+  element.innerHTML = html;
+
+  return element.textContent || element.innerText || "";
 }
 
 type Filter = "all" | "starred" | "trash" | "settings";
@@ -124,7 +138,9 @@ function SortableNote({
         onClick={() => onSelect(note.id)}
       >
         <strong>{note.title || "Untitled"}</strong>
-        <span>{note.content || "Empty note"}</span>
+        <span>
+          {getPlainText(note.content) || "empty note"}
+        </span>
       </button>
 
       {filter !== "trash" && (
@@ -149,6 +165,38 @@ function App() {
   const [notes, setNotes] = useState<Note[]>(loadNotes);
   const [selectedNoteId, setSelectedNoteId] = useState<number>(1);
   const [filter, setFilter] = useState<Filter>("all");
+
+  const selectedNote = notes.find(
+    (note) => note.id === selectedNoteId
+  );
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Placeholder.configure({
+        placeholder: "What's on your mind today?",
+      }),
+    ],
+    content: selectedNote?.content  ?? "",
+    onUpdate: ({ editor }) => {
+      if (!selectedNote) {
+        return;
+      }
+
+      updateSelectedNote("content", editor.getHTML());
+    },
+  });
+
+  useEffect(() => {
+    if (!editor || !selectedNote) {
+      return;
+    }
+
+    if (editor.getHTML() !== selectedNote.content) {
+      editor.commands.setContent(selectedNote.content || "");
+    }
+  }, [selectedNoteId, editor]);
 
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem("justnotes-theme");
@@ -194,10 +242,6 @@ function App() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [notes]);
-
-  const selectedNote = notes.find(
-    (note) => note.id === selectedNoteId
-  );
 
   const visibleNotes = (
     filter === "trash"
@@ -635,25 +679,58 @@ function App() {
               aria-label="Note title"
             />
 
-            <textarea
-              className="note-content"
-              value={selectedNote.content}
-              onChange={(event) =>
-                updateSelectedNote(
-                  "content",
-                  event.target.value
-                )
-              }
-              placeholder="What's on your mind today?"
-              aria-label="Note content"
-            />
-          </>
-        ) : (
-          <div className="empty-editor-message">
-            <h1> Select a note </h1>
-          </div>
-        )}
-      </section>
+            
+              {editor && (
+                <BubbleMenu editor={editor}>
+                  <div className="format-menu">
+                    <button
+                      className={editor.isActive("bold") ? "is-active" : ""}
+                      onClick={() => 
+                        editor.chain().focus().toggleBold().run()
+                      }
+                    >
+                      B
+                    </button>
+                    <button
+                      className={editor.isActive("italic") ? "is-active" : ""}
+                      onClick={() =>
+                        editor.chain().focus().toggleItalic().run()
+                      }
+                    >
+                      I
+                    </button>
+                    <button
+                      className={editor.isActive("underline") ? "is-active" : ""}
+                      onClick={() =>
+                        editor.chain().focus().toggleUnderline().run()
+                      }
+                    >
+                      U
+                    </button>
+
+                    <button
+                      className={editor.isActive("strike") ? "is-active" : ""}
+                      onClick={() =>
+                        editor.chain().focus().toggleStrike().run()
+                      }
+                    >
+                      S
+                    </button>
+                  </div>
+                </BubbleMenu>
+              )}
+
+              <EditorContent
+                editor={editor}
+                className="note-content"
+              />
+            </>
+          ) : (
+            <div className="empty-editor-message">
+              <h1> Select a note </h1>
+            </div>
+          )}
+        </section>
       </>
       )}
     </main>
