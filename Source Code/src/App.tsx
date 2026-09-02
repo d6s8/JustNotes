@@ -6,6 +6,7 @@ import {
         Trash2,
         GripVertical,
         Settings as SettingsIcon,
+        PenLine,
        } from "lucide-react";
 
 import "./App.css";
@@ -82,7 +83,7 @@ function getPlainText(html: string): string {
 }
 
 type Filter = "all" | "starred" | "trash" | "settings";
-type Theme = "dark" | "light";
+type Theme = "dark" | "light" | "mocha" | "nord";
 
 
 function SortableNote({
@@ -201,14 +202,45 @@ function App() {
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem("justnotes-theme");
 
-    return savedTheme === "light" ? "light" : "dark";
+    if (
+      savedTheme === "light" ||
+      savedTheme === "mocha" ||
+      savedTheme === "nord"
+    ) {
+      return savedTheme;
+    }
+
+    return "dark";
   });
+
+  const [
+    confirmPermanentDelete,
+    setConfirmPermanentDelete,
+  ] = useState(() => {
+    const savedValue = localStorage.getItem(
+      "justnotes-confirm-permanent-delete"
+    );
+
+    return savedValue === null
+      ? true
+      : savedValue === "true";
+  });
+
+  const [pendingDeleteId, setPendingDeleteId] =
+    useState<number | null>(null);
 
   useEffect(() => {
     localStorage.setItem("justnotes-theme", theme);
 
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "justnotes-confirm-permanent-delete",
+      String(confirmPermanentDelete)
+    );
+  }, [confirmPermanentDelete]);
 
   useEffect(() => {
     localStorage.setItem("justnotes-notes", JSON.stringify(notes));
@@ -375,19 +407,38 @@ function App() {
     setFilter("all");
   }
 
-  function deleteForever(id: number) {
+  function permanentlyRemoveNote(id:number) {
     setNotes((currentNotes) =>
       currentNotes.filter((note) => note.id !== id)
     );
 
-    const nextTrashNote = notes.find(
+    const nextDeletedNote = notes.find(
       (note) =>
         note.id !== id &&
         note.deletedAt !== null
     );
 
-    setSelectedNoteId(nextTrashNote?.id ?? 0);
+    setSelectedNoteId(nextDeletedNote?.id ?? 0);
   }
+
+  function deleteForever(id:number) {
+    if (confirmPermanentDelete) {
+      setPendingDeleteId(id);
+      return;
+    }
+
+    permanentlyRemoveNote(id);
+  }
+
+  function confirmDeleteForever() {
+    if (pendingDeleteId === null) {
+      return;
+    }
+
+    permanentlyRemoveNote(pendingDeleteId);
+    setPendingDeleteId(null);
+  }
+
 
   function updateSelectedNote(
     field: "title" | "content",
@@ -463,7 +514,7 @@ function App() {
             }`}
             onClick={() => changeFilter("trash")}
           >
-            Trash
+            Deleted
           </button>
         </nav>
 
@@ -484,31 +535,121 @@ function App() {
             className="new-note-button"
             onClick={createNote}
           >
-            new note
+            <span>new note </span>
+            <PenLine size={16} strokeWidth={1.8} />
           </button>
         </div>
       </aside>
 
       {filter === "settings" ? (
         <section className="settings">
-          <h1>Settings</h1>
+          <div className="settings-container">
+            <header className="settings-header">
+              <h1>Settings</h1>
+              <p>Customize your JustNotes experience.</p>
+            </header>
 
-          <div className="settings-section">
-            <div>
-              <h2>Theme</h2>
-              <p>Choose how JustNotes looks.</p>
+          <div className="settings-group">
+            <h2>Appearance</h2>
+
+            <div className="theme-setting">
+              <div className="theme-setting-heading">
+                <strong>Theme</strong>
+                <span>Choose a color palette for JustNotes!</span>
+              </div>
+
+              <div className="theme-options">
+                <button
+                  className={`theme-option dark${
+                    theme === "dark" ? " active" : ""
+                  }`}
+                  onClick={() => setTheme("dark")}
+                  aria-pressed={theme === "dark"}
+                >
+                  <span className="theme-option-colors">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+
+                  <span className="theme-option-name">Dark</span>
+                </button>
+
+                <button
+                  className={`theme-option light${
+                    theme === "light" ? " active" : ""
+                  }`}
+                  onClick={() => setTheme("light")}
+                  aria-pressed={theme === "light"}
+                >
+                  <span className="theme-option-colors">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+                
+                  <span className="theme-option-name">Light</span>  
+                </button>
+
+                <button
+                  className={`theme-option mocha${
+                    theme === "mocha" ? " active" : ""
+                  }`}
+                  onClick={() => setTheme("mocha")}
+                  aria-pressed={theme === "mocha"}
+                >
+                  <span className="theme-option-colors">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+
+                  <span className="theme-option-name">Coffee</span>
+                </button>
+
+                <button
+                  className={`theme-option nord${
+                    theme === "nord" ? " active" : ""
+                  }`}
+                  onClick={() => setTheme("nord")}
+                  aria-pressed={theme === "nord"}
+                >
+                  <span className="theme-option-colors">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+
+                  <span className="theme-option-name">Nord</span>
+                </button>
+              </div>
+              </div>
             </div>
+            <div className="settings-group">
+              <h2>General</h2>
 
-            <button
-              className={`theme-switch ${
-                theme === "light" ? "light" : ""
-              }`}
-              onClick={() =>
-                setTheme(theme === "dark" ? "light" : "dark")
-              }
-            >
-              <span className="theme-switch-thumb" />
-            </button>
+              <div className="settings-row">
+                <div className="settings-row-text">
+                  <strong>Confirm permanent deletion</strong>
+                  <span>Ask before permanently deleting a note.</span>
+                </div>
+
+                <button
+                  className={`settings-switch ${
+                    confirmPermanentDelete ? "active" : ""
+                  }`}
+                  onClick={() =>
+                    setConfirmPermanentDelete(
+                      !confirmPermanentDelete
+                    )
+                  }
+                  role="switch"
+                  aria-checked={confirmPermanentDelete}
+                >
+                  <span className="settings-switch-thumb" />
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       ) : (
@@ -727,11 +868,66 @@ function App() {
             </>
           ) : (
             <div className="empty-editor-message">
-              <h1> Select a note </h1>
+              <div className="empty-note-preview" aria-hidden="true">
+                <span className="empty-note-title-line"></span>
+                <span className="empty-note-text-line"></span>
+                <span className="empty-note-text-line-short"></span>
+                <span className="empty-note-text-line-shorter"></span>
+              </div>
+
+              <div className="empty-editor-text">
+                <h2>Nothing to see here</h2>
+                <p>Select a note from the sidebar or create a new one.</p>
+              </div>
             </div>
           )}
         </section>
       </>
+      )}
+
+    {pendingDeleteId !== null && (
+      <div
+        className="modal-backdrop"
+        onClick={() => setPendingDeleteId(null)}
+      >
+        <div
+          className="delete-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-modal-title"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="delete-modal-header">
+            <div className="delete-modal-icon">
+              <Trash2 size={18} strokeWidth={1.8} />
+            </div>
+
+            <div>
+              <h2 id="delete-modal-title">
+                You sure u want delete this note?
+              </h2>
+              <p>This action <strong>cannot</strong> be undone!</p>
+            </div>
+          </div>
+
+          <div className="delete-modal-actions">
+              <button
+              className="modal-delete-button"
+              onClick={confirmDeleteForever}
+              >
+                Delete forever (A long time!)
+              </button>
+
+              <button
+              className="modal-cancel-button"
+              onClick={() => setPendingDeleteId(null)}
+              >
+                No! Cancel
+              </button>
+
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );
