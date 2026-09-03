@@ -1,0 +1,11 @@
+{
+    "version":  "0.1.0",
+    "notes":  "The first public release of JustNotes.",
+    "pub_date":  "2026-09-03T18:37:39Z",
+    "platforms":  {
+                      "windows-x86_64":  {
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRR1p2NlB1THJnTjBsRHpsZ1EwZStNLzVTajVRdkhLSVc2QVEwYUdjUnBVUmU5VlhMOWRyOTZydVJTQ2wySEE2eGVDUGJlbXBTalZXRHNZZmRUQ0Z6RVVDNGlyeFlUUVFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4NDYwMTk2CWZpbGU6SnVzdE5vdGVzXzAuMS4wX3g2NC1zZXR1cC5leGUKeHFGNUdQQXViTWRpYy91dmRpZ1UyalVyWTJiZFdsUjRJTy9ISjNTWUNYMVA0UFl6eFJiVWpNbnk2Z2xlZTdmcmNCQjlpSjZiVGx1VDVlc1lmekdCQWc9PQo=",
+                                             "url":  "https://github.com/d6s8/JustNotes/releases/download/v0.1.0/JustNotes_0.1.0_x64-setup.exe"
+                                         }
+                  }
+}
