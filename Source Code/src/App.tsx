@@ -93,8 +93,8 @@ const initialNotes: Note[] = [
 
       <p>p.s.:
       <em> Спасибо за то, что пользуетесь JustNotes! </em><br> 
-      <strong> ♡ with love::Misa ♡ </strong><br>
-      <i> Мой телеграм: @JavaTheGod </i>
+      <code> ♡ with love::Misa ♡ <code><br>
+      <em> Мой телеграм: @JavaTheGod </em>
       </p>
     `,
     pinned: false,
