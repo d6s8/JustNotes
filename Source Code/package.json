@@ -16,6 +16,8 @@
     "@fontsource/dm-sans": "^5.3.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.11.0",
     "@tiptap/extension-placeholder": "^3.31.0",
     "@tiptap/extension-underline": "^3.31.0",
     "@tiptap/react": "^3.31.0",

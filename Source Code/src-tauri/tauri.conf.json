@@ -28,6 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -35,5 +36,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM3RTBCQUI4OEZGRTY2MDYKUldRR1p2NlB1THJnTjlIa1NUaEltSWFqd3FpNnpRdlBsblNXZUtKTnZWR3ZWT1RoVy9Gek9KRmQK",
+      "endpoints": [
+        "https://github.com/d6s8/JustNotes/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
