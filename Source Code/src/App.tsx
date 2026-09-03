@@ -93,7 +93,7 @@ const initialNotes: Note[] = [
 
       <p>p.s.:
       <em> Спасибо за то, что пользуетесь JustNotes! </em><br> 
-      <strong> with love::Misa ♡ </strong>
+      <strong> ♡ with love::Misa ♡ </strong><br>
       <i> Мой телеграм: @JavaTheGod </i>
       </p>
     `,
