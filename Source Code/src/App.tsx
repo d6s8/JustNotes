@@ -7,6 +7,10 @@ import {
         GripVertical,
         Settings as SettingsIcon,
         PenLine,
+        Files,
+        ChevronLeft,
+        ChevronRight,
+        FileText,
        } from "lucide-react";
 
 import "./App.css";
@@ -16,6 +20,12 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
+
+import {
+  check,
+  type Update,
+} from "@tauri-apps/plugin-updater";
+import { relaunch} from "@tauri-apps/plugin-process";
 
 import { BubbleMenu } from "@tiptap/react/menus"
 
@@ -33,6 +43,7 @@ import {
 
 import { CSS } from "@dnd-kit/utilities";
 
+
 type Note = {
   id: number;
   title: string;
@@ -41,17 +52,56 @@ type Note = {
   starred: boolean;
   deletedAt: number | null;
   order: number;
+  updatedAt: number;
 };
 
 const initialNotes: Note[] = [
   {
     id: 1,
     title: "Welcome to JustNotes!",
-    content: "Here you can see documentation and examples of how to use JustNotes.",
+    content: `
+      <p>Welcome to <strong>JustNotes</strong> — a simple place for your thoughts, ideas, and plans.</p>
+
+      <p><strong>Getting started</strong></p>
+
+      <ul>
+        <li><p>Create a note using the <strong>new note</strong> button.</p></li>
+        <li><p>Pin notes to keep them at the top of the list.</p></li>
+        <li><p>Add important notes to <strong>Starred</strong>.</p></li>
+        <li><p>Select text to make it bold, italic, or underlined.</p></li>
+        <li><p>Deleted notes can be restored from the Deleted tab.</p></li>
+      </ul>
+
+      <p><strong>Keyboard shortcuts</strong></p>
+
+      <p>
+      Ctrl + 1 — All notes<br>
+      Ctrl + 2 — Starred<br>
+      Ctrl + 3 — Deleted
+      </p>
+
+      <li>
+        <p>
+          Personalize JustNotes with eight themes in
+          <strong>Settings</strong>. Blueberry Dark, Darling,
+          Purpleish, and Bouquet are inspired by color palettes
+          from <strong>monkeytype.com</strong>.
+        </p>
+      </li>
+
+      <p>That's all you need. Create your first note and make JustNotes yours!</p>
+
+      <p>p.s.:
+      <em> Спасибо за то, что пользуетесь JustNotes! </em><br> 
+      <strong> with love::Misa ♡ </strong>
+      <i> Мой телеграм: @JavaTheGod </i>
+      </p>
+    `,
     pinned: false,
     starred: false,
     deletedAt: null,
     order: 0,
+    updatedAt: Date.now()
   },
 ];
 
@@ -69,6 +119,7 @@ function loadNotes(): Note[] {
       ...note,
       order: note.order ?? index,
       starred: note.starred ?? false,
+      updatedAt: note.updatedAt ?? Date.now(),
     }));
   } catch (error) {
     return initialNotes;
@@ -82,9 +133,52 @@ function getPlainText(html: string): string {
   return element.textContent || element.innerText || "";
 }
 
-type Filter = "all" | "starred" | "trash" | "settings";
-type Theme = "dark" | "light" | "mocha" | "nord";
+function formatUpdatedAt(updatedAt: number): string {
+  const updatedDate = new Date(updatedAt);
+  const today = new Date();
 
+  if (updatedDate.toDateString() === today.toDateString()) {
+    return "Modified today";
+  }
+
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  if (
+    updatedDate.toDateString() === yesterday.toDateString()
+  ) {
+    return "Modified yesterday";
+  }
+
+  return `Modified ${updatedDate.toLocaleDateString(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }
+  )}`;
+}
+
+type Filter = "all" | "starred" | "trash" | "settings";
+
+type Theme =
+  | "dark"
+  | "light"
+  | "mocha"
+  | "nord"
+  | "blueberry-dark"
+  | "darling"
+  | "purpleish"
+  | "bouquet";
+
+type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "upToDate"
+  | "error";
 
 function SortableNote({
   note,
@@ -140,7 +234,9 @@ function SortableNote({
       >
         <strong>{note.title || "Untitled"}</strong>
         <span>
-          {getPlainText(note.content) || "empty note"}
+          {getPlainText(note.content).trim()
+            ? formatUpdatedAt(note.updatedAt)
+            : "empty note"}
         </span>
       </button>
 
@@ -166,6 +262,9 @@ function App() {
   const [notes, setNotes] = useState<Note[]>(loadNotes);
   const [selectedNoteId, setSelectedNoteId] = useState<number>(1);
   const [filter, setFilter] = useState<Filter>("all");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [saveStatus, setSaveStatus] = useState< "idle" | "saving" | "saved" > ("idle") 
+
 
   const selectedNote = notes.find(
     (note) => note.id === selectedNoteId
@@ -201,11 +300,15 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem("justnotes-theme");
-
+    
     if (
       savedTheme === "light" ||
       savedTheme === "mocha" ||
-      savedTheme === "nord"
+      savedTheme === "nord" ||
+      savedTheme === "blueberry-dark" ||
+      savedTheme === "darling" ||
+      savedTheme === "purpleish" ||
+      savedTheme === "bouquet"
     ) {
       return savedTheme;
     }
@@ -229,6 +332,12 @@ function App() {
   const [pendingDeleteId, setPendingDeleteId] =
     useState<number | null>(null);
 
+  const [availableUpdate, setAvailableUpdate] =
+    useState<Update | null>(null);
+
+  const [updateStatus, setUpdateStatus] =
+    useState<UpdateStatus>("idle");
+
   useEffect(() => {
     localStorage.setItem("justnotes-theme", theme);
 
@@ -243,8 +352,37 @@ function App() {
   }, [confirmPermanentDelete]);
 
   useEffect(() => {
-    localStorage.setItem("justnotes-notes", JSON.stringify(notes));
+    localStorage.setItem(
+      "justnotes-notes",
+      JSON.stringify(notes)
+    );
+
+    if (saveStatus !== "saving") {
+      return;
+    }
+
+    const savedTimeout = window.setTimeout(() => {
+      setSaveStatus("saved");
+    }, 800);
+
+    return () => {
+      window.clearTimeout(savedTimeout);
+    };
   }, [notes]);
+
+  useEffect(() => {
+    if (saveStatus !== "saved") {
+      return;
+    }
+
+    const idleTimeout = window.setTimeout(() => {
+      setSaveStatus("idle");
+    }, 1600);
+
+    return () => {
+      window.clearTimeout(idleTimeout);
+    };
+  }, [saveStatus]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -351,6 +489,33 @@ function App() {
     );
   }
 
+  async function handleUpdate() {
+    try {
+      if (availableUpdate) {
+        setUpdateStatus("downloading");
+
+        await availableUpdate.downloadAndInstall();
+        await relaunch();
+        return;
+      }
+
+      setUpdateStatus("checking");
+
+      const update = await check();
+
+      if (update) {
+        setAvailableUpdate(update);
+        setUpdateStatus("available");
+      } else {
+        setUpdateStatus("upToDate");
+      }
+    } catch (error) {
+      console.error("Failed to check for updates:", error);
+      setUpdateStatus("error");
+    }
+  }
+
+
   function createNote() {
     const newNote: Note = {
       id: Date.now(),
@@ -360,6 +525,7 @@ function App() {
       starred: false,
       deletedAt: null,
       order: 0,
+      updatedAt: Date.now()
     };
 
     setNotes((currentNotes) => [newNote, ...currentNotes]);
@@ -444,12 +610,15 @@ function App() {
     field: "title" | "content",
     value: string
   ) {
+    setSaveStatus("saving")
+
     setNotes((currentNotes) =>
       currentNotes.map((note) =>
         note.id === selectedNoteId
           ? {
               ...note,
               [field]: value,
+              updatedAt: Date.now(),
             }
           : note
       )
@@ -482,11 +651,42 @@ function App() {
     );
   }
 
+  const updateButtonText =
+    updateStatus === "checking"
+      ? "Checking..."
+      : updateStatus === "downloading"
+        ? "Installing..."
+        : updateStatus === "available"
+          ? `Install ${availableUpdate?.version}`
+          : updateStatus === "upToDate"
+            ? "You're up to date"
+            : updateStatus === "error"
+              ? "Try again"
+              : "Check for updates";
+
+
   return (
-    <main className="app">
+    <main 
+    className={`app ${
+      sidebarCollapsed ? "sidebar-collapsed" : ""
+    }`}
+  >
       <aside className="sidebar">
         <div className="sidebar-header">
           <h1>JustNotes</h1>
+
+          <button
+            className="sidebar-toggle"
+            onClick={() =>
+              setSidebarCollapsed(!sidebarCollapsed)
+            }
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight size={23} strokeWidth={1.8} />
+            ) : (
+              <ChevronLeft size={23} strokeWidth={1.8} />
+            )}
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -496,7 +696,8 @@ function App() {
             }`}
             onClick={() => changeFilter("all")}
           >
-            All notes
+            <Files size={17} strokeWidth={1.8} />
+            <span>All notes</span>
           </button>
 
           <button
@@ -505,7 +706,8 @@ function App() {
             }`}
             onClick={() => changeFilter("starred")}
           >
-            Starred
+            <Star size={17} strokeWidth={1.8} />
+            <span>Starred</span>
           </button>
 
           <button
@@ -514,7 +716,8 @@ function App() {
             }`}
             onClick={() => changeFilter("trash")}
           >
-            Deleted
+            <Trash2 size={17} strokeWidth={1.8} />
+            <span>Deleted</span>
           </button>
         </nav>
 
@@ -525,18 +728,16 @@ function App() {
             }`}
             onClick={() => changeFilter("settings")}
           >
-            <SettingsIcon
-              size={18}
-              strokeWidth={1.8}
-            />
+            <SettingsIcon size={18} strokeWidth={1.8} />
+            <span>Settings</span>
           </button>
 
           <button
             className="new-note-button"
             onClick={createNote}
           >
+            <PenLine size={17} strokeWidth={1.8} />
             <span>new note </span>
-            <PenLine size={16} strokeWidth={1.8} />
           </button>
         </div>
       </aside>
@@ -622,6 +823,78 @@ function App() {
 
                   <span className="theme-option-name">Nord</span>
                 </button>
+
+                <button
+                  className={`theme-option blueberry-dark${
+                    theme === "blueberry-dark" ? " active" : ""
+                  }`}
+                  onClick={() => setTheme("blueberry-dark")}
+                  aria-pressed={theme === "blueberry-dark"}
+                >
+                  <span className="theme-option-colors">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+
+                  <span className="theme-option-name">
+                    Blueberry Dark
+                  </span>
+                </button>
+
+                <button
+                  className={`theme-option purpleish${
+                    theme === "purpleish" ? " active" : ""
+                  }`}
+                  onClick={() => setTheme("purpleish")}
+                  aria-pressed={theme === "purpleish"}
+                >
+                  <span className="theme-option-colors">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+
+                  <span className="theme-option-name">
+                    Purpleish
+                  </span>
+                </button>
+
+                <button
+                  className={`theme-option bouquet${
+                    theme === "bouquet" ? " active" : ""
+                  }`}
+                  onClick={() => setTheme("bouquet")}
+                  aria-pressed={theme === "bouquet"}
+                >
+                  <span className="theme-option-colors">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+
+                  <span className="theme-option-name">
+                    Bouquet
+                  </span>
+                </button>
+
+                <button
+                  className={`theme-option darling${
+                    theme === "darling" ? " active" : ""
+                  }`}
+                  onClick={() => setTheme("darling")}
+                  aria-pressed={theme === "darling"}
+                >
+                  <span className="theme-option-colors">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+
+                  <span className="theme-option-name">
+                    Darling
+                  </span>
+                </button>
               </div>
               </div>
             </div>
@@ -647,6 +920,39 @@ function App() {
                   aria-checked={confirmPermanentDelete}
                 >
                   <span className="settings-switch-thumb" />
+                </button>
+              </div>
+            </div>
+            <div className="settings-group settings-about">
+              <h2>About</h2>
+
+              <div className="settings-row">
+                <div className="settings-row-text">
+                  <strong>JustNotes</strong>
+
+                  <span>
+                    {updateStatus === "available"
+                      ? `Version ${availableUpdate?.version} is available.`
+                      : updateStatus === "downloading"
+                        ? "installing the update..."
+                        : updateStatus === "upToDate"
+                          ? "Latest version is already installed!"
+                          : updateStatus === "error"
+                            ? "Couldn't check for updates :("
+                            : "Version 0.1.0"}
+                  </span>
+                </div>
+
+                <button
+                  className="update-button"
+                  onClick={handleUpdate}
+                  disabled={
+                    updateStatus === "checking" ||
+                    updateStatus === "downloading" ||
+                    updateStatus === "upToDate"
+                  }
+                >
+                  {updateButtonText}
                 </button>
               </div>
             </div>
@@ -700,6 +1006,19 @@ function App() {
         {selectedNote ? (
           <>
             <div className="editor-toolbar">
+              <div
+                className={`save-status ${saveStatus}`}
+                role="status"
+                aria-live="polite"
+              >
+                <span>
+                  {saveStatus === "saving"
+                    ? "Saving..."
+                    : "Saved locally"}
+                </span>
+
+                <FileText size={14} strokeWidth={1.8 } />
+              </div>
               {selectedNote.deletedAt !== null ? (
                 <>
                   <button
