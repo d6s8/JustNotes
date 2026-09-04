@@ -13,6 +13,21 @@ import {
         FileText,
        } from "lucide-react";
 
+/* FOLDER ICONS */
+import {
+        Folder,
+        BriefcaseBusiness,
+        GraduationCap,
+        Lightbulb,
+        ListTodo,
+        CalendarDays,
+        BookOpen,
+        Code2,
+        Heart,
+        Plane,
+        FolderPlus,
+        } from "lucide-react"
+
 import "./App.css";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
@@ -53,6 +68,28 @@ type Note = {
   deletedAt: number | null;
   order: number;
   updatedAt: number;
+  folderIds: number[];
+};
+
+type FolderIconName =
+  | "folder"
+  | "briefcase"
+  | "graduation"
+  | "lightbulb"
+  | "tasks"
+  | "calendar"
+  | "book"
+  | "code"
+  | "heart"
+  | "plane";
+
+type NoteFolder = {
+  id: number;
+  name: string;
+  icon: FolderIconName;
+  order: number;
+  noteOrder: number[];
+  pinnedNoteIds: number[];
 };
 
 const initialNotes: Note[] = [
@@ -101,7 +138,8 @@ const initialNotes: Note[] = [
     starred: false,
     deletedAt: null,
     order: 0,
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    folderIds: []
   },
 ];
 
@@ -119,10 +157,33 @@ function loadNotes(): Note[] {
       ...note,
       order: note.order ?? index,
       starred: note.starred ?? false,
+      folderIds: note.folderIds ?? [],
       updatedAt: note.updatedAt ?? Date.now(),
     }));
   } catch (error) {
     return initialNotes;
+  }
+}
+
+function loadFolders(): NoteFolder[] {
+  const savedFolders = localStorage.getItem("justnotes-folders");
+
+  if (!savedFolders) {
+    return [];
+  }
+
+  try {
+    const parsedFolders: NoteFolder[] =
+    JSON.parse(savedFolders);
+
+  return parsedFolders.map((folder) => ({
+    ...folder,
+    noteOrder: folder.noteOrder ?? [],
+    pinnedNoteIds: folder.pinnedNoteIds ?? [],
+  }));
+
+  } catch {
+    return [];
   }
 }
 
@@ -160,7 +221,7 @@ function formatUpdatedAt(updatedAt: number): string {
   )}`;
 }
 
-type Filter = "all" | "starred" | "trash" | "settings";
+type Filter = "all" | "starred" | "trash" | "settings" | "folder";
 
 type Theme =
   | "dark"
@@ -184,12 +245,14 @@ function SortableNote({
   note,
   selectedNoteId,
   filter,
+  isPinned,
   onSelect,
   onTogglePinned,
 }: {
   note: Note;
   selectedNoteId: number;
   filter: Filter;
+  isPinned: boolean;
   onSelect: (id: number) => void;
   onTogglePinned: (id: number) => void;
 }) {
@@ -243,14 +306,14 @@ function SortableNote({
       {filter !== "trash" && (
         <button
           className={`pin-button ${
-            note.pinned ? "pinned" : ""
+            isPinned ? "pinned" : ""
           }`}
           onClick={() => onTogglePinned(note.id)}
         > 
           <Pin
             size={16}
             strokeWidth={1.8}
-            fill={note.pinned ? "currentColor" : "none"}
+            fill={isPinned ? "currentColor" : "none"}
           />
         </button>
       )}
@@ -260,15 +323,38 @@ function SortableNote({
 
 function App() {
   const [notes, setNotes] = useState<Note[]>(loadNotes);
+  const [folders, setFolders] = useState<NoteFolder[]>(loadFolders);
   const [selectedNoteId, setSelectedNoteId] = useState<number>(1);
+
   const [filter, setFilter] = useState<Filter>("all");
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const [saveStatus, setSaveStatus] = useState< "idle" | "saving" | "saved" > ("idle") 
+
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [folderNameError, setFolderNameError] = useState("");
+  const [selectedFolderIcon, setSelectedFolderIcon] = useState<FolderIconName>("folder");
 
 
   const selectedNote = notes.find(
     (note) => note.id === selectedNoteId
   );
+
+  const selectedFolder = folders.find(
+    (folder) => folder.id === selectedFolderId
+  );
+
+  const isSelectedNotePinned =
+    selectedNote !== undefined &&
+    filter === "folder" &&
+    selectedFolder
+      ? selectedFolder.pinnedNoteIds?.includes(
+          selectedNote.id
+        ) ?? false
+      : selectedNote?.pinned ?? false;
 
   const editor = useEditor({
     extensions: [
@@ -371,6 +457,13 @@ function App() {
   }, [notes]);
 
   useEffect(() => {
+    localStorage.setItem(
+      "justnotes-folders",
+      JSON.stringify(folders)
+    );
+  }, [folders]);
+
+  useEffect(() => {
     if (saveStatus !== "saved") {
       return;
     }
@@ -418,23 +511,53 @@ function App() {
       ? notes.filter((note) => note.deletedAt !== null)
       : filter === "starred"
         ? notes.filter(
-          (note) =>
-            note.starred &&
-            note.deletedAt === null
-        )
-      : notes.filter((note) => note.deletedAt === null)
+            (note) =>
+              note.starred &&
+              note.deletedAt === null
+          )
+        : filter === "folder" && selectedFolder
+          ? notes.filter(
+              (note) =>
+                note.folderIds.includes(selectedFolder.id) &&
+                note.deletedAt === null
+            )
+          : notes.filter((note) => note.deletedAt === null)
   ).sort((a, b) => {
+    if (filter === "folder" && selectedFolder) {
+      const aPinned =
+        selectedFolder.pinnedNoteIds?.includes(a.id) ?? false;
+
+      const bPinned =
+        selectedFolder.pinnedNoteIds?.includes(b.id) ?? false;
+
+      if (aPinned !== bPinned) {
+        return aPinned ? -1 : 1;
+      }
+
+      const aIndex = selectedFolder.noteOrder.indexOf(a.id);
+      const bIndex = selectedFolder.noteOrder.indexOf(b.id);
+
+      const safeAIndex =
+        aIndex === -1 ? Infinity : aIndex;
+
+      const safeBIndex =
+        bIndex === -1 ? Infinity : bIndex;
+
+      return safeAIndex - safeBIndex;
+    }
+
     if (a.pinned !== b.pinned) {
       return a.pinned ? -1 : 1;
     }
-        
+
     return a.order - b.order;
   });
 
   function changeFilter(newFilter: Filter) {
+    setSelectedFolderId(null);
     setFilter(newFilter);
 
-    const nextNote = 
+        const nextNote = 
       newFilter === "trash"
         ? notes.find((note) => note.deletedAt !== null)
         : newFilter === "starred"
@@ -449,6 +572,115 @@ function App() {
 
     setSelectedNoteId(nextNote?.id ?? 0);
   }
+
+  function changeFolder(folderId: number) {
+    const folder = folders.find(
+      (currentFolder) => currentFolder.id === folderId
+    );
+
+    if (!folder) {
+      return;
+    }
+
+    setSelectedFolderId(folderId);
+    setFilter("folder");
+
+    const folderNotes = notes
+      .filter(
+        (note) =>
+          note.folderIds.includes(folderId) &&
+          note.deletedAt === null
+      )
+      .sort((a, b) => {
+        if (a.pinned !== b.pinned) {
+          return a.pinned ? -1 : 1;
+        }
+
+        const aIndex = folder.noteOrder.indexOf(a.id);
+        const bIndex = folder.noteOrder.indexOf(b.id);
+
+        const safeAIndex = aIndex === -1 ? Infinity : aIndex;
+        const safeBIndex = bIndex === -1 ? Infinity : bIndex;
+
+        return safeAIndex - safeBIndex;
+      });
+
+    setSelectedNoteId(folderNotes[0]?.id ?? 0);
+  }
+
+  function openFolderModal() {
+    setFolderName("");
+    setFolderNameError("");
+    setSelectedFolderIcon("folder");
+    setIsFolderModalOpen(true);
+  }
+
+  function closeFolderModal() {
+    setIsFolderModalOpen(false);
+  }
+
+  function createFolder() {
+    const trimmedName = folderName.trim();
+
+    if (!trimmedName) {
+      setFolderNameError("Enter a folder name");
+      return;
+    }
+
+    const folderAlreadyExists = folders.some(
+      (folder) =>
+        folder.name.toLowerCase() ===
+        trimmedName.toLowerCase()
+    );
+
+    if (folderAlreadyExists) {
+      setFolderNameError("A folder with this name already exists");
+      return;
+    }
+
+    const newFolder: NoteFolder = {
+      id: Date.now(),
+      name: trimmedName,
+      icon: selectedFolderIcon,
+      order: folders.length,
+      noteOrder: [],
+      pinnedNoteIds: [],
+    };
+
+    setFolders((currentFolders) => [
+    ...currentFolders,
+    newFolder,
+    ]);
+
+  setSelectedFolderId(newFolder.id);
+  setSelectedNoteId(0);
+  setFilter("folder");
+  closeFolderModal();
+}
+    const folderIcons = {
+      folder: Folder,
+      briefcase: BriefcaseBusiness,
+      graduation: GraduationCap,
+      lightbulb: Lightbulb,
+      tasks: ListTodo,
+      calendar: CalendarDays,
+      book: BookOpen,
+      code: Code2,
+      heart: Heart,
+      plane: Plane,
+    };
+
+    function FolderIcon({
+      name,
+      size = 17,
+    }: {
+      name: FolderIconName;
+      size?: number;
+    }) {
+      const Icon = folderIcons[name];
+
+      return <Icon size={size} strokeWidth={1.8} />;
+    }
 
   function handleDragEnd(event: any) {
     const { active, over } = event;
@@ -470,6 +702,34 @@ function App() {
       oldIndex,
       newIndex
     );
+
+    if (filter === "folder" && selectedFolderId !== null) {
+      const reorderedIds = reorderedNotes.map(
+        (note) => note.id
+      );
+
+      setFolders((currentFolders) =>
+        currentFolders.map((folder) => {
+          if (folder.id !== selectedFolderId) {
+            return folder;
+          }
+
+          const hiddenNoteIds = folder.noteOrder.filter(
+            (id) => !reorderedIds.includes(id)
+          );
+
+          return {
+            ...folder,
+            noteOrder: [
+              ...reorderedIds,
+              ...hiddenNoteIds,
+            ],
+          };
+        })
+      );
+
+      return;
+    }
 
     setNotes((currentNotes) =>
       currentNotes.map((note) => {
@@ -517,20 +777,49 @@ function App() {
 
 
   function createNote() {
+    const targetFolderId =
+      filter === "folder" ? selectedFolderId : null;
+
     const newNote: Note = {
       id: Date.now(),
       title: "Untitled",
       content: "",
       pinned: false,
       starred: false,
+      folderIds:
+        targetFolderId !== null
+          ? [targetFolderId]
+          : [],
       deletedAt: null,
       order: 0,
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     };
 
-    setNotes((currentNotes) => [newNote, ...currentNotes]);
+    setNotes((currentNotes) => [
+      newNote,
+      ...currentNotes,
+    ]);
+
+    if (targetFolderId !== null) {
+      setFolders((currentFolders) =>
+        currentFolders.map((folder) =>
+          folder.id === targetFolderId
+            ? {
+                ...folder,
+                noteOrder: [
+                  newNote.id,
+                  ...folder.noteOrder,
+                ],
+              }
+            : folder
+        )
+      );
+    } else {
+      setSelectedFolderId(null);
+      setFilter("all");
+    }
+
     setSelectedNoteId(newNote.id);
-    setFilter("all");
   }
 
   function moveToTrash(id: number) {
@@ -625,18 +914,44 @@ function App() {
     );
   }
 
-  function togglePinned(id: number) {
-    setNotes((currentNotes) =>
-      currentNotes.map((note) =>
-        note.id === id
-          ? {
-              ...note,
-              pinned: !note.pinned,
-            }
-          : note
-      )
+function togglePinned(id: number) {
+  if (filter === "folder" && selectedFolderId !== null) {
+    setFolders((currentFolders) =>
+      currentFolders.map((folder) => {
+        if (folder.id !== selectedFolderId) {
+          return folder;
+        }
+
+        const pinnedNoteIds =
+          folder.pinnedNoteIds ?? [];
+
+        const isPinned = pinnedNoteIds.includes(id);
+
+        return {
+          ...folder,
+          pinnedNoteIds: isPinned
+            ? pinnedNoteIds.filter(
+                (noteId) => noteId !== id
+              )
+            : [...pinnedNoteIds, id],
+        };
+      })
     );
+
+    return;
   }
+
+  setNotes((currentNotes) =>
+    currentNotes.map((note) =>
+      note.id === id
+        ? {
+            ...note,
+            pinned: !note.pinned,
+          }
+        : note
+    )
+  );
+}
 
   function toggleStarred(id: number) {
     setNotes((currentNotes) =>
@@ -721,7 +1036,42 @@ function App() {
           </button>
         </nav>
 
+        <div className="folders-section">
+          <div className="folders-header">
+            <span>Folders</span>
+          </div>
+
+          <div className="folders-list">
+            {[...folders]
+              .sort((a, b) => a.order - b.order)
+              .map((folder) => (
+                <button
+                  key={folder.id}
+                  className={`folder-item ${
+                    filter === "folder" &&
+                    selectedFolderId === folder.id
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() => changeFolder(folder.id)}
+                >
+                  <FolderIcon name={folder.icon} />
+
+                  <span>{folder.name}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+
         <div className="side-bar-footer">
+          <button
+            className="new-folder-button"
+            onClick={openFolderModal}
+          >
+            <FolderPlus size={17} strokeWidth={1.8} />
+            <span>new folder</span>
+          </button>
+
           <button
             className={`settings-button ${
               filter === "settings" ? "active" : ""
@@ -736,7 +1086,7 @@ function App() {
             className="new-note-button"
             onClick={createNote}
           >
-            <PenLine size={17} strokeWidth={1.8} />
+            <PenLine size={16} strokeWidth={1.8} />
             <span>new note </span>
           </button>
         </div>
@@ -967,7 +1317,9 @@ function App() {
             ? "Notes"
             : filter === "starred"
               ? "Starred"
-              : "Trash"}
+                : filter === "trash"
+                ? "Trash"
+                  :selectedFolder?.name ?? "Folder"}
         </h2>
     <DndContext
       collisionDetection={closestCenter}
@@ -985,6 +1337,13 @@ function App() {
               note={note}
               selectedNoteId={selectedNoteId}
               filter={filter}
+              isPinned={
+                filter === "folder" && selectedFolder
+                  ? selectedFolder.pinnedNoteIds?.includes(
+                    note.id
+                  ) ?? false
+                : note.pinned
+              }
               onSelect={setSelectedNoteId}
               onTogglePinned={togglePinned}
             />
@@ -1053,7 +1412,7 @@ function App() {
                 <>
                   <button
                     className={`editor-pin-button ${
-                      selectedNote.pinned
+                      isSelectedNotePinned
                         ? "pinned"
                         : ""
                     }`}
@@ -1061,12 +1420,12 @@ function App() {
                       togglePinned(selectedNote.id)
                     }
                     aria-label={
-                      selectedNote.pinned
+                      isSelectedNotePinned
                         ? "Unpin note"
                         : "Pin note"
                     }
                     title={
-                      selectedNote.pinned
+                      isSelectedNotePinned
                         ? "Unpin note"
                         : "Pin note"
                     }
@@ -1075,7 +1434,7 @@ function App() {
                       size={18}
                       strokeWidth={1.8}
                       fill={
-                        selectedNote.pinned
+                        isSelectedNotePinned
                           ? "currentColor"
                           : "none"
                       }
@@ -1202,6 +1561,103 @@ function App() {
           )}
         </section>
       </>
+      )}
+
+      {isFolderModalOpen && (
+        <div
+          className="modal-backdrop"
+          onClick={closeFolderModal}
+        >
+          <form
+            className="folder-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="folder-modal-title"
+            onSubmit={(event) => {
+              event.preventDefault();
+              createFolder();
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="folder-modal-header">
+              <FolderIcon name={selectedFolderIcon} size={20} />
+
+              <div>
+                <h2 id="folder-modal-title">
+                  Create folder
+                </h2>
+                <p>Give your folder a name and an icon.</p>
+              </div>
+            </div>
+
+            <div className="folder-name-field">
+              <label htmlFor="folder-name">
+                Folder name
+              </label>
+
+              <input
+                id="folder-name"
+                value={folderName}
+                maxLength={30}
+                autoFocus
+                placeholder=""
+                onChange={(event) => {
+                  setFolderName(event.target.value);
+                  setFolderNameError("");
+                }}
+              />
+
+              {folderNameError && (
+                <span className="folder-name-error">
+                  {folderNameError}
+                </span>
+              )}
+            </div>
+
+            <div className="folder-icon-field">
+              <span>Icon</span>
+
+              <div className="folder-icon-grid">
+                {(
+                  Object.keys(folderIcons) as FolderIconName[]
+                ).map((iconName) => (
+                  <button
+                    key={iconName}
+                    type="button"
+                    className={`folder-icon-option ${
+                      selectedFolderIcon === iconName
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      setSelectedFolderIcon(iconName)
+                    }
+                    title={iconName}
+                  >
+                    <FolderIcon name={iconName} size={19} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="folder-modal-actions">
+              <button
+                type="button"
+                className="modal-cancel-button"
+                onClick={closeFolderModal}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="modal-create-button"
+              >
+                Create
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
     {pendingDeleteId !== null && (
