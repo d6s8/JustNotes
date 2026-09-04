@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { 
         Pin,
         RotateCcw,
@@ -7,10 +7,14 @@ import {
         GripVertical,
         Settings as SettingsIcon,
         PenLine,
+        Pencil,
         Files,
         ChevronLeft,
         ChevronRight,
         FileText,
+        Folders,
+        Check,
+        MoreHorizontal,
        } from "lucide-react";
 
 /* FOLDER ICONS */
@@ -338,6 +342,26 @@ function App() {
   const [folderNameError, setFolderNameError] = useState("");
   const [selectedFolderIcon, setSelectedFolderIcon] = useState<FolderIconName>("folder");
 
+  const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
+  const [isFolderPickerClosing, setIsFolderPickerClosing] = useState(false);
+
+  const [activeFolderMenuId, setActiveFolderMenuId] = useState<number | null>(null);
+  const [editingFolderId, setEditingFolderId] = useState<number | null>(null);
+
+  function closeFolderPicker() {
+    if (!isFolderPickerOpen || isFolderPickerClosing) {
+      return;
+    }
+
+    setIsFolderPickerClosing(true);
+
+    window.setTimeout(() => {
+      setIsFolderPickerOpen(false);
+      setIsFolderPickerClosing(false);
+    }, 140);
+  }
+
+  const folderPickerRef = useRef<HTMLDivElement>(null);
 
   const selectedNote = notes.find(
     (note) => note.id === selectedNoteId
@@ -462,6 +486,35 @@ function App() {
       JSON.stringify(folders)
     );
   }, [folders]);
+
+  useEffect(() => {
+    setIsFolderPickerOpen(false);
+  }, [selectedNoteId, filter]);
+
+  useEffect(() => {
+  if (!isFolderPickerOpen) {
+    return;
+  }
+
+  function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeFolderPicker();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleEscape
+    );
+
+    return () => {
+
+      window.removeEventListener(
+        "keydown",
+        handleEscape
+      );
+    };
+  }, [isFolderPickerOpen]);
 
   useEffect(() => {
     if (saveStatus !== "saved") {
@@ -609,9 +662,19 @@ function App() {
   }
 
   function openFolderModal() {
+    setEditingFolderId(null);
     setFolderName("");
     setFolderNameError("");
     setSelectedFolderIcon("folder");
+    setIsFolderModalOpen(true);
+  }
+
+  function openEditFolderModal(folder: NoteFolder) {
+    setEditingFolderId(folder.id);
+    setFolderName(folder.name);
+    setFolderNameError("");
+    setSelectedFolderIcon(folder.icon);
+    setActiveFolderMenuId(null);
     setIsFolderModalOpen(true);
   }
 
@@ -623,18 +686,36 @@ function App() {
     const trimmedName = folderName.trim();
 
     if (!trimmedName) {
-      setFolderNameError("Enter a folder name");
+      setFolderNameError("folder's name can't be blank!");
       return;
     }
 
     const folderAlreadyExists = folders.some(
       (folder) =>
+        folder.id !== editingFolderId &&
         folder.name.toLowerCase() ===
-        trimmedName.toLowerCase()
+          trimmedName.toLowerCase()
     );
 
     if (folderAlreadyExists) {
       setFolderNameError("A folder with this name already exists");
+      return;
+    }
+
+    if (editingFolderId !== null) {
+      setFolders((currentFolders) =>
+        currentFolders.map((folder) =>
+          folder.id === editingFolderId
+            ? {
+                ...folder,
+                name: trimmedName,
+                icon: selectedFolderIcon,
+              }
+            : folder
+        )
+      );
+
+      closeFolderModal();
       return;
     }
 
@@ -682,6 +763,44 @@ function App() {
       return <Icon size={size} strokeWidth={1.8} />;
     }
 
+    function deleteFolder(folderId: number) {
+      const folder = folders.find(
+        (currentFolder) => currentFolder.id === folderId
+      );
+
+      if (
+        !folder ||
+        !window.confirm(`Delete folder "${folder.name}"?`)
+      ) {
+        return;
+      }
+
+      setFolders((currentFolders) =>
+        currentFolders.filter(
+          (currentFolder) => currentFolder.id !== folderId
+        )
+      );
+
+      setNotes((currentNotes) =>
+        currentNotes.map((note) => ({
+          ...note,
+          folderIds: (note.folderIds ?? []).filter(
+            (id) => id !== folderId
+          ),
+        }))
+      );
+
+      setActiveFolderMenuId(null);
+
+      if (
+        filter === "folder" &&
+        selectedFolderId === folderId
+      ) {
+        setFilter("all");
+        setSelectedFolderId(null);
+      }
+    }
+  
   function handleDragEnd(event: any) {
     const { active, over } = event;
 
@@ -966,6 +1085,76 @@ function togglePinned(id: number) {
     );
   }
 
+  function toggleNoteFolder(
+    noteId: number,
+    folderId: number
+  ) {
+    const note = notes.find(
+      (currentNote) => currentNote.id === noteId
+    );
+
+    if (!note) {
+      return;
+    }
+
+    const isInFolder = note.folderIds.includes(folderId);
+
+    setNotes((currentNotes) =>
+      currentNotes.map((currentNote) =>
+        currentNote.id === noteId
+          ? {
+              ...currentNote,
+              folderIds: isInFolder
+                ? currentNote.folderIds.filter(
+                    (id) => id !== folderId
+                  )
+                : [...currentNote.folderIds, folderId],
+            }
+          : currentNote
+      )
+    );
+
+    setFolders((currentFolders) =>
+      currentFolders.map((folder) => {
+        if (folder.id !== folderId) {
+          return folder;
+        }
+
+        return {
+          ...folder,
+          noteOrder: isInFolder
+            ? folder.noteOrder.filter(
+                (id) => id !== noteId
+              )
+            : [
+                noteId,
+                ...folder.noteOrder.filter(
+                  (id) => id !== noteId
+                ),
+              ],
+          pinnedNoteIds: isInFolder
+            ? folder.pinnedNoteIds.filter(
+                (id) => id !== noteId
+              )
+            : folder.pinnedNoteIds,
+        };
+      })
+    );
+
+    if (
+      isInFolder &&
+      filter === "folder" &&
+      selectedFolderId === folderId
+    ) {
+      const nextNote = visibleNotes.find(
+        (currentNote) => currentNote.id !== noteId
+      );
+
+      setSelectedNoteId(nextNote?.id ?? 0);
+      setIsFolderPickerOpen(false);
+    }
+  }
+
   const updateButtonText =
     updateStatus === "checking"
       ? "Checking..."
@@ -1045,21 +1234,66 @@ function togglePinned(id: number) {
             {[...folders]
               .sort((a, b) => a.order - b.order)
               .map((folder) => (
-                <button
+                <div
                   key={folder.id}
-                  className={`folder-item ${
-                    filter === "folder" &&
-                    selectedFolderId === folder.id
-                      ? "active"
-                      : ""
-                  }`}
-                  onClick={() => changeFolder(folder.id)}
+                  className="folder-item-wrapper"
                 >
-                  <FolderIcon name={folder.icon} />
+                  <button
+                    className={`folder-item ${
+                      filter === "folder" &&
+                      selectedFolderId === folder.id
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      changeFolder(folder.id);
+                      setActiveFolderMenuId(null);
+                    }}
+                  >
+                    <FolderIcon name={folder.icon} />
+                    <span>{folder.name}</span>
+                  </button>
 
-                  <span>{folder.name}</span>
-                </button>
-              ))}
+                  <button
+                    className="folder-menu-button"
+                    aria-label={`Options for ${folder.name}`}
+                    title="Folder options"
+                    onClick={(event) => {
+                      event.stopPropagation();
+
+                      setActiveFolderMenuId(
+                        activeFolderMenuId === folder.id
+                          ? null
+                          : folder.id
+                      );
+                    }}
+                  >
+                    <MoreHorizontal
+                      size={16}
+                      strokeWidth={1.8}
+                    />
+                  </button>
+                  {activeFolderMenuId === folder.id && (
+                    <div className="folder-actions-menu">
+                      <button
+                        onClick={() => openEditFolderModal(folder)}
+                      >
+                        <Pencil size={12} strokeWidth={1.8} />
+                        <span>Rename</span>
+                      </button>
+
+                      <button
+                        className="danger"
+                        onClick={() => deleteFolder(folder.id)}
+                      >
+                        <Trash2 size={12} strokeWidth={1.8} />
+                        <span>Delete</span>
+                      </button>
+
+                    </div>
+                  )}
+                </div>
+            ))}
           </div>
         </div>
 
@@ -1410,6 +1644,91 @@ function togglePinned(id: number) {
                 </>
               ) : (
                 <>
+                  <div
+                    className="folder-picker-wrapper"
+                    ref={folderPickerRef}
+                    >
+                    <button
+                      className={`editor-action-button ${
+                        selectedNote.folderIds.length > 0
+                          ? "in-folder"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (isFolderPickerOpen) {
+                          closeFolderPicker();
+                        } else {
+                          setIsFolderPickerClosing(false);
+                          setIsFolderPickerOpen(true);
+                        }
+                      }}
+                      aria-label="Choose folders"
+                      title="Choose folders"
+                    >
+                      <Folders size={18} strokeWidth={1.8} />
+                    </button>
+
+                    {isFolderPickerOpen && (
+                      <>
+                        <button
+                          className="folder-picker-dismiss"
+                          onClick={closeFolderPicker}
+                        />
+
+                      <div
+                        className={`folder-picker-menu ${
+                          isFolderPickerClosing ? "closing" : ""
+                        }`}
+                      >
+                        <div className="folder-picker-title">
+                          Add to folders
+                        </div>
+
+                        {folders.length > 0 ? (
+                          [...folders]
+                            .sort((a, b) => a.order - b.order)
+                            .map((folder) => {
+                              const isSelected =
+                                selectedNote.folderIds.includes(folder.id);
+
+                              return (
+                                <button
+                                  key={folder.id}
+                                  className={`folder-picker-item ${
+                                    isSelected ? "selected" : ""
+                                  }`}
+                                  onClick={() =>
+                                    toggleNoteFolder(
+                                      selectedNote.id,
+                                      folder.id
+                                    )
+                                  }
+                                >
+                                  <FolderIcon name={folder.icon} />
+
+                                  <span>{folder.name}</span>
+
+                                  <span className="folder-picker-check">
+                                    {isSelected && (
+                                      <Check
+                                        size={15}
+                                        strokeWidth={2}
+                                      />
+                                    )}
+                                  </span>
+                                </button>
+                              );
+                            })
+                        ) : (
+                          <div className="folder-picker-empty">
+                            no folders yet
+                          </div>
+                        )}
+                      </div>
+                      </>
+                    )}
+                  </div>
+
                   <button
                     className={`editor-pin-button ${
                       isSelectedNotePinned
