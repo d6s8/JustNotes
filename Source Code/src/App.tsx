@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+
+/* LUCIDE ICONS */
 import { 
         Pin,
         RotateCcw,
@@ -61,7 +63,7 @@ import {
 } from "@dnd-kit/sortable";
 
 import { CSS } from "@dnd-kit/utilities";
-
+import { createPortal } from "react-dom";  
 
 type Note = {
   id: number;
@@ -338,6 +340,12 @@ function App() {
   const [saveStatus, setSaveStatus] = useState< "idle" | "saving" | "saved" > ("idle") 
 
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  
+  const [
+    isFolderModalClosing,
+    setIsFolderModalClosing,
+  ] = useState(false);
+
   const [folderName, setFolderName] = useState("");
   const [folderNameError, setFolderNameError] = useState("");
   const [selectedFolderIcon, setSelectedFolderIcon] = useState<FolderIconName>("folder");
@@ -347,6 +355,9 @@ function App() {
 
   const [activeFolderMenuId, setActiveFolderMenuId] = useState<number | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<number | null>(null);
+  const [folderMenuPosition, setFolderMenuPosition] = useState({ top: 0, left: 0 });
+  
+  const [isFolderMenuClosing, setIsFolderMenuClosing] = useState(false);
 
   function closeFolderPicker() {
     if (!isFolderPickerOpen || isFolderPickerClosing) {
@@ -358,6 +369,22 @@ function App() {
     window.setTimeout(() => {
       setIsFolderPickerOpen(false);
       setIsFolderPickerClosing(false);
+    }, 140);
+  }
+
+  function closeFolderMenu() {
+    if (
+      activeFolderMenuId === null ||
+      isFolderMenuClosing
+    ) {
+      return;
+    }
+
+    setIsFolderMenuClosing(true);
+
+    window.setTimeout(() => {
+      setActiveFolderMenuId(null);
+      setIsFolderMenuClosing(false);
     }, 140);
   }
 
@@ -439,6 +466,16 @@ function App() {
       : savedValue === "true";
   });
 
+  const [
+    pendingDeleteFolderId,
+    setPendingDeleteFolderId,
+  ] = useState<number | null>(null);
+
+  const [
+    isDeleteFolderModalClosing,
+    setIsDeleteFolderModalClosing,
+  ] = useState(false);
+
   const [pendingDeleteId, setPendingDeleteId] =
     useState<number | null>(null);
 
@@ -497,10 +534,19 @@ function App() {
   }
 
   function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        closeFolderPicker();
-      }
+    if (event.key !== "Escape") {
+      return;
     }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    closeFolderPicker();
+
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }
 
     window.addEventListener(
       "keydown",
@@ -515,6 +561,120 @@ function App() {
       );
     };
   }, [isFolderPickerOpen]);
+
+  useEffect(() => {
+    if (pendingDeleteFolderId === null) {
+      return;
+    }
+
+    function handleDeleteFolderEscape(
+      event: KeyboardEvent
+    ) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      closeDeleteFolderModal();
+
+      if (
+        document.activeElement instanceof HTMLElement
+      ) {
+        document.activeElement.blur();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleDeleteFolderEscape
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleDeleteFolderEscape
+      );
+    };
+  }, [
+    pendingDeleteFolderId,
+    isDeleteFolderModalClosing,
+  ]);
+
+  useEffect(() => {
+    if (!isFolderModalOpen) {
+      return;
+    }
+
+    function handleFolderModalEscape(
+      event: KeyboardEvent
+    ) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      closeFolderModal();
+
+      if (
+        document.activeElement instanceof HTMLElement
+      ) {
+        document.activeElement.blur();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleFolderModalEscape
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleFolderModalEscape
+      );
+    };
+  }, [isFolderModalOpen, isFolderModalClosing]);
+
+  useEffect(() => {
+    if (activeFolderMenuId === null) {
+      return;
+    }
+
+    function handleFolderMenuEscape(
+      event: KeyboardEvent
+    ) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      closeFolderMenu();
+
+      if (
+        document.activeElement instanceof HTMLElement
+      ) {
+        document.activeElement.blur();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleFolderMenuEscape
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleFolderMenuEscape
+      );
+    };
+  }, [activeFolderMenuId, isFolderMenuClosing]);
 
   useEffect(() => {
     if (saveStatus !== "saved") {
@@ -679,7 +839,19 @@ function App() {
   }
 
   function closeFolderModal() {
-    setIsFolderModalOpen(false);
+    if (
+      !isFolderModalOpen ||
+      isFolderModalClosing
+    ) {
+      return;
+    }
+
+    setIsFolderModalClosing(true);
+
+    window.setTimeout(() => {
+      setIsFolderModalOpen(false);
+      setIsFolderModalClosing(false);
+    }, 160);
   }
 
   function createFolder() {
@@ -764,33 +936,31 @@ function App() {
     }
 
     function deleteFolder(folderId: number) {
-      const folder = folders.find(
-        (currentFolder) => currentFolder.id === folderId
-      );
-
-      if (
-        !folder ||
-        !window.confirm(`Delete folder "${folder.name}"?`)
-      ) {
+        setActiveFolderMenuId(null);
+        setPendingDeleteFolderId(folderId);
+      }
+ 
+    function confirmDeleteFolder() {
+      if (pendingDeleteFolderId === null) {
         return;
       }
 
+      const folderId = pendingDeleteFolderId;
+
       setFolders((currentFolders) =>
         currentFolders.filter(
-          (currentFolder) => currentFolder.id !== folderId
+          (folder) => folder.id !== folderId
         )
       );
 
       setNotes((currentNotes) =>
         currentNotes.map((note) => ({
           ...note,
-          folderIds: (note.folderIds ?? []).filter(
+          folderIds: note.folderIds.filter(
             (id) => id !== folderId
           ),
         }))
       );
-
-      setActiveFolderMenuId(null);
 
       if (
         filter === "folder" &&
@@ -799,8 +969,26 @@ function App() {
         setFilter("all");
         setSelectedFolderId(null);
       }
+
+      setPendingDeleteFolderId(null);
     }
-  
+
+  function closeDeleteFolderModal() {
+    if (
+      pendingDeleteFolderId === null ||
+      isDeleteFolderModalClosing
+    ) {
+      return;
+    }
+
+    setIsDeleteFolderModalClosing(true);
+
+    window.setTimeout(() => {
+      setPendingDeleteFolderId(null);
+      setIsDeleteFolderModalClosing(false);
+    }, 160);
+  }
+
   function handleDragEnd(event: any) {
     const { active, over } = event;
 
@@ -1261,10 +1449,24 @@ function togglePinned(id: number) {
                     onClick={(event) => {
                       event.stopPropagation();
 
+                      const isOpening =
+                        activeFolderMenuId !== folder.id;
+
+                      if (isOpening) {
+                        const rect =
+                          event.currentTarget.getBoundingClientRect();
+
+                        setFolderMenuPosition({
+                          top: Math.min(
+                            rect.bottom + 4,
+                            window.innerHeight - 90
+                          ),
+                          left: Math.max(8, rect.right - 140),
+                        });
+                      }
+
                       setActiveFolderMenuId(
-                        activeFolderMenuId === folder.id
-                          ? null
-                          : folder.id
+                        isOpening ? folder.id : null
                       );
                     }}
                   >
@@ -1273,25 +1475,41 @@ function togglePinned(id: number) {
                       strokeWidth={1.8}
                     />
                   </button>
-                  {activeFolderMenuId === folder.id && (
-                    <div className="folder-actions-menu">
-                      <button
-                        onClick={() => openEditFolderModal(folder)}
-                      >
-                        <Pencil size={12} strokeWidth={1.8} />
-                        <span>Rename</span>
-                      </button>
+                  {activeFolderMenuId === folder.id &&
+                    createPortal(
+                      <>
+                        <button
+                          className="folder-actions-dismiss"
+                          onClick={closeFolderMenu}
+                        />
 
-                      <button
-                        className="danger"
-                        onClick={() => deleteFolder(folder.id)}
-                      >
-                        <Trash2 size={12} strokeWidth={1.8} />
-                        <span>Delete</span>
-                      </button>
+                        <div
+                          className={`folder-actions-menu ${
+                            isFolderMenuClosing ? "closing" : ""
+                          }`}
+                          style={{
+                            top: folderMenuPosition.top,
+                            left: folderMenuPosition.left,
+                          }}
+                        >
+                          <button
+                            onClick={() => openEditFolderModal(folder)}
+                          >
+                            <Pencil size={12} strokeWidth={1.8} />
+                            <span>Rename</span>
+                          </button>
 
-                    </div>
-                  )}
+                          <button
+                            className="danger"
+                            onClick={() => deleteFolder(folder.id)}
+                          >
+                            <Trash2 size={12} strokeWidth={1.8} />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      </>,
+                      document.body
+                    )}
                 </div>
             ))}
           </div>
@@ -1884,11 +2102,15 @@ function togglePinned(id: number) {
 
       {isFolderModalOpen && (
         <div
-          className="modal-backdrop"
+          className={`modal-backdrop ${
+            isFolderModalClosing ? "closing" : ""
+          }`}
           onClick={closeFolderModal}
         >
           <form
-            className="folder-modal"
+            className={`folder-modal ${
+              isFolderModalClosing ? "closing" : ""
+            }`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="folder-modal-title"
@@ -1903,7 +2125,9 @@ function togglePinned(id: number) {
 
               <div>
                 <h2 id="folder-modal-title">
-                  Create folder
+                  {editingFolderId !== null
+                    ? "Edit folder"
+                    : "Create folder"}
                 </h2>
                 <p>Give your folder a name and an icon.</p>
               </div>
@@ -1972,10 +2196,61 @@ function togglePinned(id: number) {
                 type="submit"
                 className="modal-create-button"
               >
-                Create
+                {editingFolderId !== null ? "Save" : "Create"}
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {pendingDeleteFolderId !== null && (
+        <div
+          className={`modal-backdrop ${
+            isDeleteFolderModalClosing ? "closing" : ""
+          }`}
+          onClick={closeDeleteFolderModal}
+        >
+          <div
+            className={`delete-modal ${
+              isDeleteFolderModalClosing ? "closing" : ""
+            }`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-folder-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="delete-modal-header">
+              <div className="delete-modal-icon">
+                <Trash2 size={18} strokeWidth={1.8} />
+              </div>
+
+              <div>
+                <h2 id="delete-folder-modal-title">
+                  delete this folder?
+                </h2>
+
+                <p>
+                  notes inside the folder will not be deleted.
+                </p>
+              </div>
+            </div>
+
+            <div className="delete-modal-actions">
+              <button
+                className="modal-delete-button"
+                onClick={confirmDeleteFolder}
+              >
+                Delete folder
+              </button>
+
+              <button
+                className="modal-cancel-button"
+                onClick={closeDeleteFolderModal}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
