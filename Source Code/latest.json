@@ -1,11 +1,11 @@
 {
-    "version":  "0.1.0",
-    "notes":  "The first public release of JustNotes.",
-    "pub_date":  "2026-09-03T19:05:22Z",
+    "version":  "0.2.0",
+    "notes": "Added folders, folder-specific note ordering and interface improvements.",
+    "pub_date":  "2026-09-06T20:45:24Z",
     "platforms":  {
                       "windows-x86_64":  {
                                              "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRR1p2NlB1THJnTjNja3ZsVGd4QSswbXJWRlN2S25pZGpPODJKNzVwMXV2eG1WRXBpamc3USs5bkVuTnpyeXA4OTNsRlJOejQvMnk4a21HaEorcGs2MUF1Wk9EbXdNbGdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4NDYyMjkxCWZpbGU6SnVzdE5vdGVzXzAuMS4wX3g2NC1zZXR1cC5leGUKdTZQd0RLdlVibnpIWDU0aUlNUXgvVzNwZUZoS29GK2lOMWRWT05RN0lnNnNOMnNmT09NUm55ZkR5bUNJcTFSMVlZUkhvQmNKWGZTTi9FNSs0RVBKQVE9PQo=",
-                                             "url":  "https://github.com/d6s8/JustNotes/releases/download/v0.1.0/JustNotes_0.1.0_x64-setup.exe"
+                                             "url": "https://github.com/d6s8/JustNotes/releases/latest/download/JustNotes_0.2.0_x64-setup.exe"
                                          }
                   }
 }
